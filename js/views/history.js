@@ -173,8 +173,9 @@ const HistoryView = (() => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (confirm('Delete this shift? This cannot be undone.')) {
-          Storage.deleteShift(btn.dataset.shiftId);
-          if (Storage.getSettings().autoSync) Cloud.push();
+          const shiftId = btn.dataset.shiftId;
+          Storage.deleteShift(shiftId);
+          if (Storage.getSettings().autoSync) Cloud.deleteShift(shiftId);
           render();
           showToast('Shift deleted', 'info');
         }

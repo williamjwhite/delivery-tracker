@@ -42,7 +42,7 @@ const Shift = (() => {
     stopTimer();
     const shifts = Storage.addShift(shift);
     if (Storage.getSettings().autoSync) {
-      Cloud.push();
+      Cloud.pushShift(shift);
     }
     return shift;
   }

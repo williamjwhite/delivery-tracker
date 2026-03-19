@@ -15,11 +15,7 @@ const Storage = (() => {
     driverName:       '',
     distanceUnit:     'miles',      // 'miles' | 'km'
     darkMode:         false,
-    cloudProvider:    'none',       // 'none' | 'google' | 'apple'
-    googleDriveFileId: '',
-    googleAccessToken: '',
-    icloudEndpoint:   '',
-    icloudToken:      '',
+    sheetsWebAppUrl:  '',           // Google Apps Script Web App URL
     autoSync:         true,
     defaultPlatform:  '',           // e.g. 'DoorDash', 'Uber Eats'
     hourlyGoal:       '',

@@ -7,6 +7,18 @@ const SettingsView = (() => {
   function render() {
     const container = document.getElementById('view-settings');
     const s         = Storage.getSettings();
+    const { status, lastSync } = Cloud.getStatus();
+
+    const syncStatusHtml = (() => {
+      if (!Cloud.isConfigured()) return `<span style="color:var(--muted-foreground)">Not connected</span>`;
+      if (status === 'synced' && lastSync) {
+        const ago = timeSince(new Date(lastSync));
+        return `<span style="color:#22c55e">✓ Last synced ${ago}</span>`;
+      }
+      if (status === 'error') return `<span style="color:var(--destructive)">✕ Sync error</span>`;
+      if (status === 'syncing') return `<span style="color:var(--primary)">↻ Syncing…</span>`;
+      return `<span style="color:var(--muted-foreground)">URL saved, not yet tested</span>`;
+    })();
 
     container.innerHTML = `
       <div class="view-header">
@@ -22,11 +34,11 @@ const SettingsView = (() => {
         <div class="settings-section">
           <div class="settings-section-title">Driver</div>
           <div class="card card-sm">
-            <div class="form-group" style="margin-bottom:0.5rem">
+            <div class="form-group" style="margin-bottom:0.75rem">
               <label class="form-label">Your Name</label>
               <input id="s-name" type="text" class="form-input" placeholder="e.g. Jordan Smith" value="${escHtml(s.driverName)}" />
             </div>
-            <div class="form-group" style="margin-bottom:0.5rem">
+            <div class="form-group" style="margin-bottom:0.75rem">
               <label class="form-label">Default Platform</label>
               <input id="s-platform" type="text" class="form-input" placeholder="e.g. DoorDash, Uber Eats" value="${escHtml(s.defaultPlatform)}" />
             </div>
@@ -44,7 +56,7 @@ const SettingsView = (() => {
         <div class="settings-section">
           <div class="settings-section-title">Appearance</div>
           <div class="card card-sm">
-            <div class="toggle-row">
+            <div class="toggle-row" style="border-bottom:none">
               <div class="toggle-label-wrap">
                 <div class="toggle-label">Dark Mode</div>
                 <div class="toggle-desc">Switch to a darker interface</div>
@@ -57,103 +69,56 @@ const SettingsView = (() => {
           </div>
         </div>
 
-        <!-- ── Cloud Sync ──────────────────────── -->
+        <!-- ── Google Sheets Sync ──────────────── -->
         <div class="settings-section">
-          <div class="settings-section-title">Cloud Sync</div>
+          <div class="settings-section-title">Cloud Sync — Google Sheets</div>
+          <div class="card card-sm">
 
-          <!-- Provider picker -->
-          <div class="card card-sm" style="margin-bottom:0.75rem">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Cloud Provider</label>
-              <select id="s-cloud-provider" class="form-select">
-                <option value="none"   ${s.cloudProvider === 'none'   ? 'selected' : ''}>None (local only)</option>
-                <option value="google" ${s.cloudProvider === 'google' ? 'selected' : ''}>Google Drive</option>
-                <option value="apple"  ${s.cloudProvider === 'apple'  ? 'selected' : ''}>Apple / Custom Endpoint</option>
-              </select>
+            <!-- Status row -->
+            <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:1rem;padding-bottom:0.875rem;border-bottom:1px solid var(--border)">
+              <div style="font-size:1.5rem">📊</div>
+              <div>
+                <div style="font-size:0.875rem;font-weight:600">Google Sheets</div>
+                <div style="font-size:0.72rem" id="sync-status-text">${syncStatusHtml}</div>
+              </div>
             </div>
-          </div>
 
-          <!-- Google Drive -->
-          <div id="gdrive-section" class="${s.cloudProvider === 'google' ? '' : 'hidden'}" style="margin-bottom:0.75rem">
-            <div class="card card-sm">
-              <div class="cloud-status-card" style="margin-bottom:0.75rem">
-                <div class="cloud-icon google">☁️</div>
-                <div class="cloud-info">
-                  <div class="cloud-name">Google Drive</div>
-                  <div class="cloud-status-text" id="gdrive-status-text">
-                    ${s.googleAccessToken ? '✓ Connected — token stored' : 'Not connected'}
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">OAuth Client ID
-                  <span class="text-xs text-muted" style="font-weight:400"> — from Google Cloud Console</span>
-                </label>
-                <input id="s-gclient" type="text" class="form-input" placeholder="xxxxx.apps.googleusercontent.com" value="${escHtml(s.googleClientId || '')}" />
-                <div class="text-xs text-muted mt-1">
-                  Create a project at <strong>console.cloud.google.com</strong>, enable Drive API, add an OAuth 2.0 Web Client ID with this page's URL as an authorized redirect URI.
-                </div>
-              </div>
-
-              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                <button id="btn-gdrive-auth" class="btn btn-primary" style="flex:1">
-                  ${s.googleAccessToken ? '↻ Re-authenticate' : '🔗 Connect Google Drive'}
-                </button>
-                ${s.googleAccessToken ? `<button id="btn-gdrive-pull" class="btn btn-secondary">⬇ Pull Data</button>` : ''}
-              </div>
-
-              ${s.googleAccessToken ? `
-                <div class="toggle-row" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border)">
-                  <div class="toggle-label-wrap">
-                    <div class="toggle-label">Auto-sync after each shift</div>
-                  </div>
-                  <label class="toggle">
-                    <input type="checkbox" id="s-autosync" ${s.autoSync ? 'checked' : ''} />
-                    <span class="toggle-track"></span>
-                  </label>
-                </div>` : ''}
+            <!-- How-to callout -->
+            <div style="background:color-mix(in srgb, var(--primary) 10%, var(--background));border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:calc(var(--radius) - 4px);padding:0.75rem;margin-bottom:1rem;font-size:0.78rem;line-height:1.6">
+              <strong>One-time setup (2 min):</strong><br>
+              1. Open <a href="https://sheets.new" target="_blank" style="color:var(--primary)">sheets.new</a> → name it "RouteLog Data"<br>
+              2. Click <strong>Extensions → Apps Script</strong><br>
+              3. Paste the contents of <strong>google-apps-script.js</strong> (included in your download)<br>
+              4. Click <strong>Deploy → New deployment → Web app</strong><br>
+              5. Set <em>Execute as: Me</em> &amp; <em>Who has access: Anyone</em><br>
+              6. Copy the URL and paste it below
             </div>
-          </div>
 
-          <!-- Apple / Custom -->
-          <div id="apple-section" class="${s.cloudProvider === 'apple' ? '' : 'hidden'}" style="margin-bottom:0.75rem">
-            <div class="card card-sm">
-              <div class="cloud-status-card" style="margin-bottom:0.75rem">
-                <div class="cloud-icon apple">🍎</div>
-                <div class="cloud-info">
-                  <div class="cloud-name">Apple / Custom Endpoint</div>
-                  <div class="cloud-status-text">${s.icloudEndpoint ? `Endpoint set` : 'Not configured'}</div>
-                </div>
+            <div class="form-group">
+              <label class="form-label">Web App URL</label>
+              <input id="s-sheets-url" type="url" class="form-input"
+                placeholder="https://script.google.com/macros/s/…/exec"
+                value="${escHtml(s.sheetsWebAppUrl || '')}" />
+              <div class="text-xs text-muted mt-1">
+                Treat this URL like a password — it grants access to your sheet data. Don't commit it to a public repo.
               </div>
+            </div>
 
-              <div class="form-group">
-                <label class="form-label">Endpoint URL</label>
-                <input id="s-icloud-url" type="url" class="form-input" placeholder="https://your-endpoint.example.com/routelog" value="${escHtml(s.icloudEndpoint)}" />
-                <div class="text-xs text-muted mt-1">
-                  Must accept <strong>GET</strong> (pull) and <strong>PUT</strong> (push) requests returning/accepting JSON. Works with CloudKit JS Web Services or any REST API you control.
-                </div>
+            <div class="toggle-row" style="padding-top:0.75rem;border-top:1px solid var(--border)">
+              <div class="toggle-label-wrap">
+                <div class="toggle-label">Auto-sync after each shift</div>
+                <div class="toggle-desc">Push to Sheets when you end a shift</div>
               </div>
+              <label class="toggle">
+                <input type="checkbox" id="s-autosync" ${s.autoSync !== false ? 'checked' : ''} />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
 
-              <div class="form-group">
-                <label class="form-label">Bearer Token <span class="text-xs text-muted">(optional)</span></label>
-                <input id="s-icloud-token" type="password" class="form-input" placeholder="sk-…" value="${escHtml(s.icloudToken)}" />
-              </div>
-
-              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                <button id="btn-apple-test" class="btn btn-primary" style="flex:1">🔌 Test Connection</button>
-                <button id="btn-apple-pull" class="btn btn-secondary">⬇ Pull Data</button>
-              </div>
-
-              <div class="toggle-row" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border)">
-                <div class="toggle-label-wrap">
-                  <div class="toggle-label">Auto-sync after each shift</div>
-                </div>
-                <label class="toggle">
-                  <input type="checkbox" id="s-autosync-apple" ${s.autoSync ? 'checked' : ''} />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
+            <div style="display:flex;gap:0.5rem;margin-top:1rem">
+              <button id="btn-test-sync" class="btn btn-outline" style="flex:1">🔌 Test</button>
+              <button id="btn-push-all" class="btn btn-secondary" style="flex:1">⬆ Push All</button>
+              <button id="btn-pull" class="btn btn-secondary" style="flex:1">⬇ Pull</button>
             </div>
           </div>
         </div>
@@ -162,10 +127,10 @@ const SettingsView = (() => {
         <div class="settings-section">
           <div class="settings-section-title">Data</div>
           <div class="card card-sm">
-            <div class="toggle-row" style="border-bottom:none">
+            <div class="toggle-row">
               <div class="toggle-label-wrap">
-                <div class="toggle-label">Export all data</div>
-                <div class="toggle-desc">Download a JSON backup of all shifts</div>
+                <div class="toggle-label">Export backup</div>
+                <div class="toggle-desc">Download all shifts as JSON</div>
               </div>
               <button id="btn-export" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.8rem">Export</button>
             </div>
@@ -173,21 +138,21 @@ const SettingsView = (() => {
             <div class="toggle-row" style="border-bottom:none">
               <div class="toggle-label-wrap">
                 <div class="toggle-label" style="color:var(--destructive)">Clear all data</div>
-                <div class="toggle-desc">Permanently delete all local shifts</div>
+                <div class="toggle-desc">Delete all local shifts</div>
               </div>
               <button id="btn-clear" class="btn btn-danger" style="font-size:0.78rem;padding:0.4rem 0.8rem">Clear</button>
             </div>
           </div>
         </div>
 
-        <!-- Save button -->
         <button id="btn-save-settings" class="btn btn-primary btn-full btn-lg">
           Save Settings
         </button>
 
         <div style="text-align:center;margin-top:0.75rem">
-          <span class="text-xs text-muted">RouteLog v1.0 — Open source, data stays yours</span>
+          <span class="text-xs text-muted">RouteLog v1.0 · <a href="https://github.com/williamjwhite/delivery-tracker" target="_blank" style="color:var(--primary)">GitHub</a></span>
         </div>
+
       </div>
     `;
 
@@ -195,63 +160,50 @@ const SettingsView = (() => {
   }
 
   function bindSettingsEvents() {
-    const s = Storage.getSettings();
-
-    // Cloud provider switcher
-    document.getElementById('s-cloud-provider').addEventListener('change', function() {
-      document.getElementById('gdrive-section').className = this.value === 'google' ? '' : 'hidden';
-      document.getElementById('apple-section').className = this.value === 'apple' ? '' : 'hidden';
-    });
-
     // Dark mode live preview
     document.getElementById('s-dark').addEventListener('change', function() {
       applyTheme(this.checked);
     });
 
-    // Google auth
-    const btnAuth = document.getElementById('btn-gdrive-auth');
-    if (btnAuth) {
-      btnAuth.addEventListener('click', () => {
-        saveSettingsData(); // save client id first
-        Cloud.startGoogleAuth();
-      });
-    }
+    // Test connection
+    document.getElementById('btn-test-sync').addEventListener('click', async () => {
+      saveSettingsData();
+      if (!Cloud.isConfigured()) {
+        showToast('Paste your Web App URL first', 'error'); return;
+      }
+      showToast('Testing connection…', 'info');
+      const result = await Cloud.testConnection();
+      if (result.ok) {
+        showToast(`✓ Connected! ${result.shiftCount} shift(s) in Sheet`, 'success', 4000);
+        render(); // refresh status line
+      } else {
+        showToast(`Connection failed: ${result.error}`, 'error', 5000);
+      }
+    });
 
-    // Google pull
-    const btnPull = document.getElementById('btn-gdrive-pull');
-    if (btnPull) {
-      btnPull.addEventListener('click', async () => {
-        saveSettingsData();
-        showToast('Pulling from Google Drive…', 'info');
-        const data = await Cloud.pull();
-        if (data) showToast('Data synced from Drive!', 'success');
-        else       showToast('Pull failed — check token', 'error');
-      });
-    }
+    // Push all
+    document.getElementById('btn-push-all').addEventListener('click', async () => {
+      saveSettingsData();
+      if (!Cloud.isConfigured()) { showToast('Configure Web App URL first', 'error'); return; }
+      showToast('Pushing all shifts…', 'info');
+      const ok = await Cloud.push();
+      if (ok) { showToast('All shifts synced to Sheets!', 'success'); render(); }
+      else     { showToast('Push failed — check URL', 'error'); }
+    });
 
-    // Apple test
-    const btnTest = document.getElementById('btn-apple-test');
-    if (btnTest) {
-      btnTest.addEventListener('click', async () => {
-        saveSettingsData();
-        showToast('Testing connection…', 'info');
-        const data = await Cloud.pull();
-        if (data !== null) showToast('Connection successful!', 'success');
-        else               showToast('Connection failed — check URL/token', 'error');
-      });
-    }
-
-    // Apple pull
-    const btnApplePull = document.getElementById('btn-apple-pull');
-    if (btnApplePull) {
-      btnApplePull.addEventListener('click', async () => {
-        saveSettingsData();
-        showToast('Pulling data…', 'info');
-        const data = await Cloud.pull();
-        if (data) showToast('Data synced!', 'success');
-        else      showToast('Pull failed', 'error');
-      });
-    }
+    // Pull
+    document.getElementById('btn-pull').addEventListener('click', async () => {
+      saveSettingsData();
+      if (!Cloud.isConfigured()) { showToast('Configure Web App URL first', 'error'); return; }
+      showToast('Pulling from Sheets…', 'info');
+      const data = await Cloud.pull();
+      if (data) {
+        showToast(`Pulled ${(data.shifts||[]).length} shift(s) from Sheets!`, 'success');
+        render();
+      } else {
+        showToast('Pull failed — check URL', 'error');
+      }
+    });
 
     // Export
     document.getElementById('btn-export').addEventListener('click', () => {
@@ -263,14 +215,14 @@ const SettingsView = (() => {
       a.download = `routelog-backup-${new Date().toISOString().slice(0,10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('Export downloaded!', 'success');
+      showToast('Backup downloaded!', 'success');
     });
 
     // Clear
     document.getElementById('btn-clear').addEventListener('click', () => {
-      if (confirm('Delete ALL shift data? This cannot be undone.')) {
+      if (confirm('Delete ALL local shift data? This cannot be undone.\n\n(Your Google Sheet is unaffected.)')) {
         Storage.saveShifts([]);
-        showToast('All data cleared', 'info');
+        showToast('Local data cleared', 'info');
       }
     });
 
@@ -283,21 +235,12 @@ const SettingsView = (() => {
 
   function saveSettingsData() {
     const s = Storage.getSettings();
-
     s.driverName      = document.getElementById('s-name')?.value.trim() || '';
     s.defaultPlatform = document.getElementById('s-platform')?.value.trim() || '';
     s.distanceUnit    = document.getElementById('s-unit')?.value || 'miles';
     s.darkMode        = document.getElementById('s-dark')?.checked || false;
-    s.cloudProvider   = document.getElementById('s-cloud-provider')?.value || 'none';
-    s.googleClientId  = document.getElementById('s-gclient')?.value.trim() || '';
-    s.icloudEndpoint  = document.getElementById('s-icloud-url')?.value.trim() || '';
-    s.icloudToken     = document.getElementById('s-icloud-token')?.value.trim() || '';
-
-    const autoGoogle = document.getElementById('s-autosync');
-    const autoApple  = document.getElementById('s-autosync-apple');
-    if (autoGoogle) s.autoSync = autoGoogle.checked;
-    if (autoApple)  s.autoSync = autoApple.checked;
-
+    s.sheetsWebAppUrl = document.getElementById('s-sheets-url')?.value.trim() || '';
+    s.autoSync        = document.getElementById('s-autosync')?.checked !== false;
     Storage.saveSettings(s);
     applyTheme(s.darkMode);
   }
@@ -305,6 +248,27 @@ const SettingsView = (() => {
   function escHtml(str) {
     return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  function timeSince(date) {
+    const s = Math.floor((Date.now() - date) / 1000);
+    if (s < 60)   return 'just now';
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    return `${Math.floor(s/3600)}h ago`;
+  }
+
+  document.addEventListener('cloud:status', () => {
+    // Refresh status text if settings view is active
+    const el = document.getElementById('sync-status-text');
+    if (!el) return;
+    const { status, lastSync } = Cloud.getStatus();
+    if (status === 'synced' && lastSync) {
+      el.innerHTML = `<span style="color:#22c55e">✓ Last synced ${timeSince(new Date(lastSync))}</span>`;
+    } else if (status === 'syncing') {
+      el.innerHTML = `<span style="color:var(--primary)">↻ Syncing…</span>`;
+    } else if (status === 'error') {
+      el.innerHTML = `<span style="color:var(--destructive)">✕ Sync error — check URL</span>`;
+    }
+  });
 
   return { render };
 })();
