@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="RouteLog" />
+  <meta name="theme-color" content="#57c4dc" />
+  <title>RouteLog — Delivery Tracker</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CDN (v3 for broad compatibility without build step) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- App CSS (your theme tokens) -->
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="bg-background text-foreground font-sans antialiased">
+
+  <!-- App Shell -->
+  <div id="app">
+    <!-- Views injected by JS -->
+    <div id="view-dashboard" class="view active"></div>
+    <div id="view-history"   class="view"></div>
+    <div id="view-settings"  class="view"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav id="bottom-nav" class="bottom-nav">
+    <button class="nav-btn active" data-view="dashboard" aria-label="Dashboard">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-btn" data-view="history" aria-label="History">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+      <span>History</span>
+    </button>
+    <button class="nav-btn" data-view="settings" aria-label="Settings">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Tip Modal -->
+  <div id="tip-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <h2 id="tip-modal-title" class="modal-title">Log a Tip</h2>
+      <div class="form-group">
+        <label class="form-label">Tip Amount ($)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">$</span>
+          <input id="tip-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" class="form-input pl-8" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note <span class="text-muted-foreground text-xs">(optional)</span></label>
+        <input id="tip-note" type="text" placeholder="e.g. Pizza delivery, apt 4B" class="form-input" />
+      </div>
+      <div class="modal-actions">
+        <button id="tip-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="tip-save" class="btn btn-primary">Save Tip</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Shift Confirm Modal -->
+  <div id="end-shift-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="end-shift-title">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <h2 id="end-shift-title" class="modal-title">End Shift</h2>
+      <p class="text-sm text-muted-foreground mb-4">Enter your ending odometer reading to log mileage for this shift.</p>
+      <div class="form-group">
+        <label class="form-label">End Odometer (miles)</label>
+        <input id="end-odometer" type="number" inputmode="numeric" placeholder="e.g. 48920" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Base Pay for Shift ($) <span class="text-muted-foreground text-xs">(optional)</span></label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">$</span>
+          <input id="end-base-pay" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" class="form-input pl-8" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="end-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="end-confirm" class="btn btn-primary">End Shift</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/shift.js"></script>
+  <script src="js/views/dashboard.js"></script>
+  <script src="js/views/history.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
